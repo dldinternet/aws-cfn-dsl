@@ -8,10 +8,17 @@ module Aws
   module Cfn
     module Dsl
       class Template < ::TemplateDSL
+        attr_reader :dict
 
-        def initialize(&block)
-          @path = File.dirname(caller[2].split(%r'\s+').shift.split(':')[0])
-          super
+        def dict
+          @dict
+        end
+
+        def initialize(path=nil,&block)
+          @path = path || File.dirname(caller[2].split(%r'\s+').shift.split(':')[0])
+          super() do
+            # We do nothing with the template for now
+          end
         end
 
         def file(b)
