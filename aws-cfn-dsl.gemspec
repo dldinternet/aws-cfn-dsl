@@ -18,11 +18,9 @@ Gem::Specification.new do |spec|
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "awesome_print"
-  spec.add_dependency "json"
-  spec.add_dependency 'cloudformation-ruby-dsl', "~> 0.4", ">= 0.4.2"
+  spec.add_dependency 'awesome_print'
+  spec.add_dependency 'json'
+  spec.add_dependency 'cloudformation-ruby-dsl', '~> 0.4', '>= 0.4.3'
+  spec.add_dependency "slop"
 
-  spec.add_development_dependency "json_pure"
-  spec.add_development_dependency 'bundler', "~> 1.5"
-  spec.add_development_dependency 'rake'
 end

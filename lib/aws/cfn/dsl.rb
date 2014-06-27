@@ -1,9 +1,7 @@
-require "aws/cfn/dsl/version"
+require 'json'
+require 'ap'
+require 'yaml'
 
-module Aws
-  module Cfn
-    module Dsl
-      # Your code goes here...
-    end
-  end
-end
+require "aws/cfn/dsl/version"
+require "aws/cfn/dsl/base"
+require "aws/cfn/dsl/main"
