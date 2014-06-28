@@ -70,7 +70,7 @@ module Aws
           end
         end
 
-        def hash_refs(line)
+        def hash_refs(line,scope)
           match = line.match %r/^(.*?)(\{\s*:\S+\s*=>.*?\}|\{\s*\S+:\s*.*?\})(.*)$/
           if match
             h = nil
@@ -84,8 +84,8 @@ module Aws
                 end
 
             h[k.to_s] = v
-            VARS[:logger].debug h
-            [match[1], h, hash_refs(match[3]) ]
+            scope[:logger].debug h
+            [match[1], h, hash_refs(match[3],scope) ]
           else
             "#{line}\n"
           end

@@ -24,9 +24,9 @@ module Aws
             abort! @opts
           end
 
-          load(@opts[:template])
+          load_template(@opts[:template])
 
-          save(@opts[:output])
+          save_dsl(@opts[:output])
 
         end
       end

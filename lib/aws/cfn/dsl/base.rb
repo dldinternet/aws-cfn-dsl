@@ -43,12 +43,12 @@ module Aws
 
         end
 
-        def save(path=nil,parts=@items)
+        def save_dsl(path=nil,parts=@items)
           pprint(simplify(parts,true))
           @logger.step "*** DSL generated ***"
         end
 
-        def load(file=nil)
+        def load_template(file=nil)
           if file
             logStep "Loading #{file}"
             begin
@@ -308,16 +308,34 @@ module Aws
           end
         end
 
+        def prelude_code(indent='  ')
+          "scope = Aws::Cfn::Compiler.binding[File.basename(File.dirname(__FILE__))][File.basename(__FILE__, '.rb')]\n"+
+          "template = scope[:template]\n"+
+          "\n"+
+          "# noinspection RubyStringKeysInHashInspection\n"+
+          "template." +
+          ""
+        end
+
+        def print_with_wrapper(code,indent='  ')
+          write prelude_code(indent)+code.gsub(%r'^\s+','')
+        end
+
         def pprint_cfn_section(section, name, options, subdir, brick=true)
           if open_output(subdir,name)
             @logger.info "Pretty print #{section} '#{name}' to '#{rb_file(subdir, name)}'"
-            print_maintainer
-            write   "  #{section} #{fmt_string(name)}"
+            print_maintainer ''
+            print_with_wrapper "#{section} #{fmt_string(name)}"
             indent = '  ' + (' ' * section.length) + ' '
+            hang   = true
             options.each do |k, v|
-              writeln ","
+              if hang
+                writeln ','
+                hang = false
+              end
               write indent, fmt_key(k), " => "
               pprint_value v, indent
+              hang = true
             end
             writeln
             writeln
@@ -332,20 +350,25 @@ module Aws
           subdir = 'Resources'
           if open_output(subdir,name)
             @logger.info "Pretty print resource '#{name}' to '#{rb_file(subdir, name)}'"
-            writeln '# noinspection RubyStringKeysInHashInspection'
-            writeln "resource #{fmt_string(name)},"
+            print_maintainer ''
+            print_with_wrapper "resource #{fmt_string(name)}"
             indent = '  '
+            hang   = true
             options.each do |k, v|
+              if hang
+                writeln ','
+                hang = false
+              end
+
               case k
                 when /^(Metadata|Properties)$/
                   write   "#{indent}#{fmt_key(k)} => "
                   pprint_value options[k], indent
-                  writeln ','
+                  hang = true
                 else
                   write   "#{indent}#{fmt_key(k)} => "
-                  writeln "#{fmt(v)},"
-              end
-              unless k == 'Properties'
+                  write "#{fmt(v)}"
+                  hang = true
               end
             end
             writeln
