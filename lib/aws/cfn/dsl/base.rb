@@ -1,4 +1,3 @@
-require "aws/cfn/decompiler"
 require "aws/cfn/dsl/fncall"
 
 require 'ap'
@@ -45,10 +44,40 @@ module Aws
         end
 
         def save(path=nil,parts=@items)
-          pprint(simplify(parts))
+          pprint(simplify(parts,true))
+          @logger.step "*** DSL generated ***"
         end
 
-        def simplify(val)
+        def load(file=nil)
+          if file
+            logStep "Loading #{file}"
+            begin
+              abs = File.absolute_path(File.expand_path(file))
+              unless File.exists?(abs) or @opts[:output].nil?
+                abs = File.absolute_path(File.expand_path(File.join(@opts[:output],file)))
+              end
+            rescue
+              # pass
+            end
+            if File.exists?(abs)
+              case File.extname(File.basename(abs)).downcase
+                when /json|js/
+                  @items = JSON.parse(File.read(abs))
+                when /yaml|yml/
+                  @items = YAML.load(File.read(abs))
+                else
+                  abort! "Unsupported file type for specification: #{file}"
+              end
+            else
+              abort! "Unable to open template: #{abs}"
+            end
+          end
+        end
+
+        protected
+
+        def simplify(val,start=false)
+          logStep "Simplify a block ..." if start
           if val.is_a?(Hash)
             val = Hash[val.map { |k,v| [k, simplify(v)] }]
             if val.length != 1
@@ -93,6 +122,7 @@ module Aws
         end
 
         def pprint(val)
+          logStep "Pretty print ..."
           case detect_type(val)
             when :template
               pprint_cfn_template(val)
@@ -109,7 +139,10 @@ module Aws
           end
         end
 
-        protected
+        def module_name(parts=-1)
+          name = self.class.to_s.split("::")
+          name[0..parts-1].join('::')
+        end
 
         def abort!(msg=nil,rc=1)
           @logger.error msg if msg
@@ -153,59 +186,72 @@ module Aws
         end
 
         def pprint_cfn_template(tpl)
-          open_output('',File.basename(@opts[:template].gsub(%r'\.(json|yaml|rb)'i,'')))
-          writeln "#!/usr/bin/env ruby"
-          writeln
-          if @opts[:output]
-            writeln "$:.unshift(File.dirname(__FILE__))"
-            # noinspection RubyExpressionInStringInspection
-            writeln '$:.unshift File.absolute_path("#{File.dirname(__FILE__)}/../lib")'
-          end
-          writeln "require 'bundler/setup'"
-          writeln "require 'aws/cfn/dsl/template'"
-          #writeln "require 'cloudformation-ruby-dsl/spotprice'"
-          # writeln "require 'cloudformation-ruby-dsl/table'"
-          writeln
-          writeln "template do"
-          writeln
-          tpl.each do |section, v|
-            case section
-              when 'Parameters'
-              when 'Mappings'
-              when 'Resources'
-              when 'Outputs'
-              else
-                write "  value #{fmt_key(section)} => "
-                pprint_value v, '  '
-                writeln
-                writeln
+          file = File.basename(@opts[:template]).gsub(%r'\.(json|yaml|js|yaml)$'i, '.rb')
+          # noinspection RubyParenthesesAroundConditionInspection
+          if (iam = open_output('', file.gsub(%r'\.(json|yaml|js|yml|rb)'i, '')))
+            logStep "Saving #{file}"
+            writeln "#!/usr/bin/env ruby"
+            print_maintainer('')
+            writeln
+            if @opts[:output]
+              writeln "$:.unshift(File.dirname(__FILE__))"
+              # noinspection RubyExpressionInStringInspection
+              writeln '$:.unshift File.absolute_path("#{File.dirname(__FILE__)}/../lib")'
             end
+            writeln "require 'bundler/setup'"
+            writeln "require 'aws/cfn/dsl/template'"
+            #writeln "require 'cloudformation-ruby-dsl/spotprice'"
+            #writeln "require 'cloudformation-ruby-dsl/table'"
+            writeln
+            writeln "template do"
+            writeln
+            tpl.each do |section, v|
+              case section
+                when 'Parameters'
+                when 'Mappings'
+                when 'Resources'
+                when 'Outputs'
+                else
+                  write "  value #{fmt_key(section)} => "
+                  pprint_value v, '  '
+                  writeln
+                  writeln
+              end
+            end
+          else
+            @logger.warn "Not overwriting template: '#{file}'"
           end
           %w(Mappings Parameters Resources Outputs).each do |section|
-            writeln "  # #{section}"
+            writeln "  # #{section}" if iam
             v = tpl[section]
             case section
               when 'Parameters'
-                v.each { |name, options| pprint_cfn_section 'parameter', name, options, 'Parameters' }
+                v.each { |name, options| pprint_cfn_section 'parameter', name, options, 'Parameters', iam }
               when 'Mappings'
-                v.each { |name, options| pprint_cfn_section 'mapping', name, options, 'Mappings' }
+                v.each { |name, options| pprint_cfn_section 'mapping', name, options, 'Mappings', iam }
               when 'Resources'
-                v.each { |name, options| pprint_cfn_resource name, options }
+                v.each { |name, options| pprint_cfn_resource name, options, iam }
               when 'Outputs'
-                v.each { |name, options| pprint_cfn_section 'output', name, options, 'Outputs' }
+                v.each { |name, options| pprint_cfn_section 'output', name, options, 'Outputs', iam }
               else
-                raise "Internal Error: Unexpected section '#{section}'"
+                abort! "Internal Error: Unexpected section '#{section}'"
             end
-            writeln
+            writeln if iam
           end
-          writeln "end.exec!"
+          writeln "end.exec!" if iam
         end
 
         def open_output(subdir,name)
           if @opts[:output]
             file = rb_file(subdir, name)
-
-            @output.unshift File.open(file, 'w')
+            if i_am_maintainer(file)
+              @output.unshift File.open(file, 'w')
+              true
+            else
+              false
+            end
+          else
+            true
           end
         end
 
@@ -233,43 +279,81 @@ module Aws
           end
         end
 
-        def pprint_cfn_section(section, name, options, subdir)
-          open_output(subdir,name)
-          write "  #{section} #{fmt_string(name)}"
-          indent = '  ' + (' ' * section.length) + ' '
-          options.each do |k, v|
-            writeln ","
-            write indent, fmt_key(k), " => "
-            pprint_value v, indent
-          end
-          writeln
-          writeln
-          close_output
-          add_brick(subdir,name)
+        def maintainer(parts=-1)
+          "maintainer: #{module_name parts}"
         end
 
-        def pprint_cfn_resource(name, options)
-          subdir = 'Resources'
-          open_output(subdir,name)
-          writeln '# noinspection RubyStringKeysInHashInspection'
-          writeln "resource #{fmt_string(name)},"
-          indent = '  '
-          options.each do |k, v|
-            case k
-            when /^(Metadata|Properties)$/
-              write   "#{indent}#{fmt_key(k)} => "
-              pprint_value options[k], indent
-              writeln ','
-            else
-              write   "#{indent}#{fmt_key(k)} => "
-              writeln "#{fmt(v)},"
-            end
-            unless k == 'Properties'
-            end
+        def maintainer_comment(indent='  ')
+          "#{indent}# WARNING: This code is generated. Your changes may be overwritten!\n" +
+          "#{indent}# Remove this message and/or set the 'maintainer: <author name>' when you need your changes to survive.\n" +
+          "#{indent}# Abscence of the 'maintainer: ' will be considered conscent to overwrite.\n" +
+          "#{indent}# #{maintainer 3}\n" +
+          "#\n"
+        end
+
+        def print_maintainer(indent='  ')
+          writeln maintainer_comment(indent)
+        end
+
+        def i_am_maintainer(file)
+          # mod = module_name 2
+          if File.exists?(file)
+            src = IO.read(file)
+            mtc = src.match(%r'#{maintainer 2}')
+            iam = (not mtc.nil? or src.match(%r'#\s*maintainer:').nil?)
+            ovr = @config[:overwrite]
+            iam or ovr
+          else
+            true
           end
-          writeln
-          close_output
-          add_brick(subdir,name)
+        end
+
+        def pprint_cfn_section(section, name, options, subdir, brick=true)
+          if open_output(subdir,name)
+            @logger.info "Pretty print #{section} '#{name}' to '#{rb_file(subdir, name)}'"
+            print_maintainer
+            write   "  #{section} #{fmt_string(name)}"
+            indent = '  ' + (' ' * section.length) + ' '
+            options.each do |k, v|
+              writeln ","
+              write indent, fmt_key(k), " => "
+              pprint_value v, indent
+            end
+            writeln
+            writeln
+            close_output
+            add_brick(subdir,name) if brick
+          else
+            @logger.warn "NOT overwriting existing source file '#{rb_file(subdir, name)}'"
+          end
+        end
+
+        def pprint_cfn_resource(name, options, brick=true)
+          subdir = 'Resources'
+          if open_output(subdir,name)
+            @logger.info "Pretty print resource '#{name}' to '#{rb_file(subdir, name)}'"
+            writeln '# noinspection RubyStringKeysInHashInspection'
+            writeln "resource #{fmt_string(name)},"
+            indent = '  '
+            options.each do |k, v|
+              case k
+                when /^(Metadata|Properties)$/
+                  write   "#{indent}#{fmt_key(k)} => "
+                  pprint_value options[k], indent
+                  writeln ','
+                else
+                  write   "#{indent}#{fmt_key(k)} => "
+                  writeln "#{fmt(v)},"
+              end
+              unless k == 'Properties'
+              end
+            end
+            writeln
+            close_output
+            add_brick(subdir,name) if brick
+          else
+            @logger.warn "NOT overwriting existing source file '#{rb_file(subdir, name)}'"
+          end
         end
 
         def pprint_value(val, indent)

@@ -9,9 +9,16 @@ module Aws
         def run
 
           @opts = Slop.parse(help: true) do
-            on :j, :template=,      'The template to convert', as: String
-            on :o, :output=,        'The directory to output the DSL to.', as: String
+            on :j, :template=,      'The template to convert', as: String, argument: true
+            on :o, :output=,        'The directory to output the DSL to.', as: String, argument: true
+            on :O, :overwrite,      'Overwrite existing generated source files. (HINT: Think twice ...)', { as: String, optional_argument: true, default: 'off', match: %r/0|1|yes|no|on|off|enable|disable|set|unset|true|false|raw/i }
           end
+
+          @config[:overwrite] = if @opts[:overwrite].downcase.match %r'^(1|true|on|yes|enable|set)$'
+                                  true
+                                else
+                                  false
+                                end
 
           unless @opts[:template]
             abort! @opts

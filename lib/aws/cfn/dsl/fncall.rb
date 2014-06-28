@@ -1,4 +1,3 @@
-require "aws/cfn/decompiler"
 
 module Aws
   module Cfn
