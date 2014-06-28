@@ -14,14 +14,12 @@ module Aws
           end
 
           unless @opts[:template]
-            puts @opts
-            exit
+            abort! @opts
           end
 
-          load @opts[:template]
+          load(@opts[:template])
 
-          pprint(simplify(@items))
-
+          save(@opts[:output])
 
         end
       end

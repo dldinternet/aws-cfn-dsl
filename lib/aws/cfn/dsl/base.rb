@@ -1,13 +1,51 @@
 require "aws/cfn/decompiler"
 require "aws/cfn/dsl/fncall"
 
+require 'ap'
+
 module Aws
   module Cfn
     module Dsl
-      class Base < Aws::Cfn::DeCompiler::Base
+      class Base
+        attr_accessor :items
+        attr_reader   :output
+
+        require 'dldinternet/mixlib/logging'
+        include DLDInternet::Mixlib::Logging
 
         def initialize
+          super
           @output = []
+          @config ||= {}
+
+          lcs = ::Logging::ColorScheme.new( 'compiler', :levels => {
+              :trace => :blue,
+              :debug => :cyan,
+              :info  => :green,
+              :step  => :green,
+              :warn  => :yellow,
+              :error => :red,
+              :fatal => :red,
+              :todo  => :purple,
+          })
+          scheme = lcs.scheme
+          scheme['trace'] = "\e[38;5;33m"
+          scheme['fatal'] = "\e[38;5;89m"
+          scheme['todo']  = "\e[38;5;55m"
+          lcs.scheme scheme
+          @config[:log_opts] = lambda{|mlll| {
+              :pattern      => "%#{mlll}l: %m %C\n",
+              :date_pattern => '%Y-%m-%d %H:%M:%S',
+              :color_scheme => 'compiler'
+          }
+          }
+          @config[:log_level] = :info
+          @logger = getLogger(@config)
+
+        end
+
+        def save(path=nil,parts=@items)
+          pprint(simplify(parts))
         end
 
         def simplify(val)
@@ -17,32 +55,34 @@ module Aws
               val
             else
               k, v = val.entries[0]
-              case
-                # CloudFormation functions
-                # when k == 'Fn::Base64'
-                #   FnCall.new 'base64', [v], true
-                # when k == 'Fn::FindInMap'
-                #   FnCall.new 'find_in_map', v
-                # when k == 'Fn::GetAtt'
-                #   FnCall.new 'get_att', v
-                # when k == 'Fn::GetAZs'
-                #   FnCall.new 'get_azs', v != '' ? [v] : []
-                # when k == 'Fn::Join'
-                #   FnCall.new 'join', [v[0]] + v[1], true
-                # when k == 'Fn::Select'
-                #   FnCall.new 'select', v
-                # when k == 'Ref' && v == 'AWS::Region'
-                #   FnCall.new 'aws_region', []
-                # when k == 'Ref' && v == 'AWS::StackName'
-                #   FnCall.new 'aws_stack_name', []
-                # CloudFormation internal references
-                # when k == 'Ref'
-                #   FnCall.new 'ref', [v]
-                # Aws::Cfn::DSL functions
-                when k.match(%r'^Aws::Cfn::DSL')
-                  FnCall.new k, [v]
-                else
-                  val
+              case @opts[:functions]
+              when /1|on|set|enable|yes|true/ then
+                case
+                  # CloudFormation functions
+                  when k == 'Fn::Base64'
+                    FnCall.new 'base64', [v], true
+                  when k == 'Fn::FindInMap'
+                    FnCall.new 'find_in_map', v
+                  when k == 'Fn::GetAtt'
+                    FnCall.new 'get_att', v
+                  when k == 'Fn::GetAZs'
+                    FnCall.new 'get_azs', v != '' ? [v] : []
+                  when k == 'Fn::Join'
+                    FnCall.new 'join', [v[0]] + v[1], true
+                  when k == 'Fn::Select'
+                    FnCall.new 'select', v
+                  when k == 'Ref' && v == 'AWS::Region'
+                    FnCall.new 'aws_region', []
+                  when k == 'Ref' && v == 'AWS::StackName'
+                    FnCall.new 'aws_stack_name', []
+                  # CloudFormation internal references
+                  when k == 'Ref'
+                    FnCall.new 'ref', [v]
+                  else
+                    val
+                end
+              else
+                val
               end
             end
           elsif val.is_a?(Array)
@@ -70,6 +110,12 @@ module Aws
         end
 
         protected
+
+        def abort!(msg=nil,rc=1)
+          @logger.error msg if msg
+          @logger.fatal '!!! Aborting !!!'
+          exit rc
+        end
 
         def write(*s)
           if s.is_a?(Array)
@@ -205,18 +251,22 @@ module Aws
         def pprint_cfn_resource(name, options)
           subdir = 'Resources'
           open_output(subdir,name)
-          write "  resource #{fmt_string(name)}"
+          writeln '# noinspection RubyStringKeysInHashInspection'
+          writeln "resource #{fmt_string(name)},"
           indent = '  '
           options.each do |k, v|
+            case k
+            when /^(Metadata|Properties)$/
+              write   "#{indent}#{fmt_key(k)} => "
+              pprint_value options[k], indent
+              writeln ','
+            else
+              write   "#{indent}#{fmt_key(k)} => "
+              writeln "#{fmt(v)},"
+            end
             unless k == 'Properties'
-              write ", #{fmt_key(k)} => #{fmt(v)}"
             end
           end
-          if options.key?('Properties')
-            write ", #{fmt_key('Properties')} => "
-            pprint_value options['Properties'], indent
-          end
-          writeln
           writeln
           close_output
           add_brick(subdir,name)
@@ -252,7 +302,7 @@ module Aws
             end
             write "#{indent}]"
 
-          elsif val.is_a?(FnCall) && val.multiline
+          elsif val.is_a?(FnCall) && val.multiline && @opts[:functions] != 'raw'
             write val.name, "("
             args = val.arguments
             sep = ''

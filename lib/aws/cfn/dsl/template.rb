@@ -70,9 +70,26 @@ module Aws
           end
         end
 
-        # def output_file(p)
-        #   file "Outputs/#{p}.rb"
-        # end
+        def hash_refs(line)
+          match = line.match %r/^(.*?)(\{\s*:\S+\s*=>.*?\}|\{\s*\S+:\s*.*?\})(.*)$/
+          if match
+            h = nil
+            eval "h = #{match[2]}", binding
+            k = h.keys[0]
+            v = h.delete(k)
+            v = if v.is_a?Array
+                  v.map{|e| e.to_s }
+                else
+                  v.to_s
+                end
+
+            h[k.to_s] = v
+            VARS[:logger].debug h
+            [match[1], h, hash_refs(match[3]) ]
+          else
+            "#{line}\n"
+          end
+        end
 
         def exec!(argv=ARGV)
           @opts = Slop.parse(help: true) do
