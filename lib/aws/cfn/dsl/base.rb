@@ -94,8 +94,13 @@ module Aws
         protected
 
         def abort!(msg=nil,rc=1)
-          @logger.error msg if msg
-          @logger.fatal '!!! Aborting !!!'
+          if @logger
+            @logger.error msg if msg
+            @logger.fatal '!!! Aborting !!!'
+          else
+            puts msg if msg
+            puts '!!! Aborting !!!'
+          end
           exit rc
         end
 
