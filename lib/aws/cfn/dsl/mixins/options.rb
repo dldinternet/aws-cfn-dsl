@@ -64,6 +64,12 @@ module Aws
 
           @opts.parse!
 
+          setup_config
+
+        end
+
+        def setup_config
+
           unless @opts[:directory]
             puts @opts
             abort! "Missing required option --directory"
@@ -73,12 +79,6 @@ module Aws
             puts @opts
             abort! "Missing required option --template"
           end
-
-          setup_config
-
-        end
-
-        def setup_config
 
           [:overwrite, :functions, :force, :expandedpaths  ].each { |cfg|
             @config[cfg] = (not @opts[cfg].downcase.match(@on_yes_regex).nil?)
