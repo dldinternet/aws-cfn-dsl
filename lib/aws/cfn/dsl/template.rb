@@ -71,21 +71,35 @@ module Aws
         end
 
         def hash_refs(line,scope)
-          match = line.match %r/^(.*?)(\{\s*:\S+\s*=>.*?\}|\{\s*\S+:\s*.*?\})(.*)$/
+          block_regex = %r/\{\s*:\S+\s*=>.*?\}|\{\s*\S+:\s*.*?\}/
+          match = line.match %r/^(.*?)(#{block_regex})(.*)$/
           if match
+            left = match[1]
+            code = match[2]
+            tail = match[3]
+            while true
+              braces = code.gsub(%r/[^{}]+/, '')
+              len    = braces.size
+              if len % 2 != 0
+                nest = tail.match %r/^(.*\})(.*)$/
+                if nest
+                  code += nest[1]
+                  tail  = nest[2]
+                else
+                  abort! "Mismatched {}'s"
+                end
+              else
+                break
+              end
+            end
             h = nil
-            eval "h = #{match[2]}", binding
+            eval "h = #{code}", binding
             k = h.keys[0]
             v = h.delete(k)
-            v = if v.is_a?Array
-                  v.map{|e| e.to_s }
-                else
-                  v.to_s
-                end
-
+            v = scope[:compiler].sym_to_s(v)
             h[k.to_s] = v
             scope[:logger].debug h
-            [match[1], h, hash_refs(match[3],scope) ]
+            [left, h, tail.size > 0 ? hash_refs(tail,scope) : tail ]
           else
             "#{line}\n"
           end
