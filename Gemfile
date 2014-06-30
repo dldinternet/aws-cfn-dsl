@@ -12,8 +12,6 @@ gem 'aws-cfn-compiler', :path => '../aws-cfn-compiler', :group => :development
 gem 'aws-cfn-yats', :path => '../aws-cfn-yats', :group => :development
 gem 'aws-cfn-stacker', :path => '../aws-cfn-stacker', :group => :development
 
-gem 'slop', :group => :development
-
 gem 'json_pure', :group => :development
 gem 'bundler', '~> 1.5', :group => :development
 gem 'rake', :group => :development
