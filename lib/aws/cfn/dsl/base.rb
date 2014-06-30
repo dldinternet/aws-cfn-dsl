@@ -95,6 +95,7 @@ module Aws
 
         def abort!(msg=nil,rc=1)
           exp = '!!! Aborting !!!'
+          exp += "\n"+caller[1..-1].join("\n")
           if @logger
             @logger.error msg if msg
             @logger.fatal exp
