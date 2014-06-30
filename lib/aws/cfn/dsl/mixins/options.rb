@@ -106,13 +106,17 @@ module Aws
           scheme['fatal'] = "\e[38;5;89m"
           scheme['todo']  = "\e[38;5;55m"
           lcs.scheme scheme
-          @config[:log_opts] = lambda{|mlll| {
-              :pattern      => "%#{mlll}l: %m %C\n",
-              :date_pattern => '%Y-%m-%d %H:%M:%S',
-              :color_scheme => 'compiler'
-          }
-          }
           @config[:log_level] ||= :info
+          @config[:log_opts] = lambda{|mlll| {
+              :pattern      => "%#{mlll}l: %m %g\n",
+              :date_pattern => '%Y-%m-%d %H:%M:%S',
+              :color_scheme => 'compiler',
+              :trace        => true,
+              # [2014-06-30 Christo] DO NOT do this ... it needs to be a FixNum!!!!
+              # If you want to do ::Logging.init first then fine ... go ahead :)
+              # :level        => @config[:log_level],
+          }
+          }
           @logger = getLogger(@config)
         end
 

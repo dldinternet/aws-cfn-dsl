@@ -23,5 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'json'
   spec.add_dependency 'slop'
   spec.add_dependency 'cloudformation-ruby-dsl', '~> 0.4', '>= 0.4.3'
+  spec.add_dependency 'dldinternet-mixlib-logging', '>= 0.3.0'
 
 end
