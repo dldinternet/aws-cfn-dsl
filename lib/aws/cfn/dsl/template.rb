@@ -72,7 +72,7 @@ module Aws
 
         def hash_refs(line,scope)
           block_regex = %r/\{\s*:\S+\s*=>.*?\}|\{\s*\S+:\s*.*?\}/
-          match = line.match %r/^(.*?)(#{block_regex})(.*)$/
+          match = line.match %r/^([^#]*?)(#{block_regex})(.*)$/
           if match
             left = match[1]
             code = match[2]
