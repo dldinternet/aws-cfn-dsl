@@ -1,4 +1,12 @@
 require 'slop'
+
+class Object
+  def with(instance, *args, &block)
+    instance.instance_exec(*args, &block)
+    instance
+  end
+end
+
 module Aws
   module Cfn
     module Dsl
@@ -6,12 +14,20 @@ module Aws
         attr_reader   :opts
         attr_reader   :config
 
-        def setup_options
+        require "dldinternet/mixlib/cli/mixins/parsers"
+        include ::DLDInternet::Mixlib::CLI::Parsers
+
+        def setup_options(opts=@opts)
           @on_off_regex = %r/0|1|yes|no|on|off|enable|disable|set|unset|true|false|raw/i
           @format_regex = %r/ruby|rb|yaml|yml|json|js/i
           @on_yes_regex = %r'^(1|true|on|yes|enable|set)$'
+          @optional   ||= {}
+          unless opts
+            @opts ||= Slop.new(help: true)
+            opts = @opts
+          end
 
-          @opts = Slop.new(help: true) do
+          with opts do
             on :t, :template=,      'The template', as: String
             on :d, :directory=,     'The directory with template components.', as: String
 
@@ -19,40 +35,36 @@ module Aws
                                                                                            default: 'step',
                                                                                            match: %r/#{::Logging::LEVELS.keys.join('|')}/i}
 
-            on :n, :functions=,     'Enable function use.', { as: String,
-                                                              default: 'off',
-                                                              match: @on_off_regex } do |_|
-              me = @options.select { |o|
-                o.long == 'functions'
-              }[0]
-              me.config[:default] = 'on'
+            [
+                { short: :n, long: :functions=,    default: 'off', on: 'on',      desc: 'Enable function use'},
+                { short: :x, long: :expandedpaths, default: 'off', on:      'on', desc: 'Show expanded paths in output',                                       },
+                { short: :O, long: :overwrite,     default: 'off', on:      'on', desc: 'Overwrite existing generated source files. (HINT: Think twice ...)',  },
+            ].each do |opt|
+              on opt[:short], opt[:long], opt[:desc], {as: String,
+                                             optional_argument: true,
+                                             default: opt[:default],
+                                             match: @on_off_regex } do |_|
+                me = @options.select { |o|
+                  o.long == opt[:long].to_s
+                }[0]
+                me.config[:default] = opt[:on]
+              end
             end
-            on :x, :expandedpaths, 'Show expanded paths in output', {as: String,
-                                                                     optional_argument: true,
-                                                                     default: 'off',
-                                                                     match: @on_off_regex } do |objects|
-              me = @options.select { |o|
-                o.long == 'expandedpaths'
-              }[0]
-              me.config[:default] = 'on'
-            end
-            on :O, :overwrite, 'Overwrite existing generated source files. (HINT: Think twice ...)', {as: String,
-                                                                                                      optional_argument: true,
-                                                                                                      default: 'off',
-                                                                                                      match: @on_off_regex } do |objects|
-              me = @options.select { |o|
-                o.long == 'overwrite'
-              }[0]
-              me.config[:default] = 'on'
-            end
-            on :force, 'Continue processing and ignore warnings', {as: String,
-                                                                   optional_argument: true,
-                                                                   default: 'off',
-                                                                   match: @on_off_regex } do |objects|
-              me = @options.select { |o|
-                o.long == 'force'
-              }[0]
-              me.config[:default] = 'on'
+            [
+                { short: :overwrite,  default: 'off', on:      'on', desc: 'Overwrite existing generated source files. (HINT: Think twice ...)',  },
+                { short: :force,      default: 'off', on:      'on', desc: 'Continue processing and ignore warnings',                             },
+                { short: :debug,      default: 'off', on:      'on', desc: 'Turn on debugging',                                                   },
+                { short: :trace,      default: 'off', on:      'on', desc: 'Turn on tracing',                                                     },
+            ].each do |opt|
+              on opt[:short], opt[:desc], {as: String,
+                                             optional_argument: true,
+                                             default: opt[:default],
+                                             match: @on_off_regex } do |_|
+                me = @options.select { |o|
+                  o.long == opt[:short].to_s
+                }[0]
+                me.config[:default] = opt[:on]
+              end
             end
           end
 
@@ -70,9 +82,9 @@ module Aws
 
         def setup_config
 
-          unless @opts[:directory]
+          unless @opts[:directory] or @optional[:directory]
             puts @opts
-            abort! "Missing required option --directory"
+            abort! "Missing required option. --directory is required"
           end
 
           unless @opts[:template]
@@ -80,8 +92,8 @@ module Aws
             abort! "Missing required option --template"
           end
 
-          [:overwrite, :functions, :force, :expandedpaths  ].each { |cfg|
-            @config[cfg] = (not @opts[cfg].downcase.match(@on_yes_regex).nil?)
+          [:overwrite, :functions, :force, :expandedpaths, :debug, :trace  ].each { |cfg|
+            @config[cfg] = (not (@opts[cfg].nil? or @opts[cfg].downcase.match(@on_yes_regex).nil?))
           }
 
           @opts.options.each{ |opt|
@@ -111,13 +123,14 @@ module Aws
               :pattern      => "%#{mlll}l: %m %g\n",
               :date_pattern => '%Y-%m-%d %H:%M:%S',
               :color_scheme => 'compiler',
-              :trace        => true,
+              :trace        => (@config[:trace].nil? ? false : @config[:trace]),
               # [2014-06-30 Christo] DO NOT do this ... it needs to be a FixNum!!!!
               # If you want to do ::Logging.init first then fine ... go ahead :)
               # :level        => @config[:log_level],
           }
           }
           @logger = getLogger(@config)
+
         end
 
         def self.included(includer)

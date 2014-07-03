@@ -1,8 +1,6 @@
-require 'bundler/setup'
 require 'cloudformation-ruby-dsl/cfntemplate'
 require 'cloudformation-ruby-dsl/table'
 #require 'cloudformation-ruby-dsl/spotprice'
-require 'slop'
 
 module Aws
   module Cfn

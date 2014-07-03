@@ -93,10 +93,13 @@ module Aws
 
         protected
 
-        def abort!(msg=nil,rc=1)
+        def abort!(msg=nil,rc=1,st=nil)
+          cfg = :trace
+          st  = (not (@opts[cfg].nil? or @opts[cfg].downcase.match(@on_yes_regex).nil?))
           exp = '!!! Aborting !!!'
-          exp += "\n"+caller[1..-1].join("\n")
+          exp += "\n"+caller[0..-1].join("\n") if st
           if @logger
+            ::Logging::LogEvent.caller_index += 1
             @logger.error msg if msg
             @logger.fatal exp
           else
