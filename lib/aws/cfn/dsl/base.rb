@@ -35,6 +35,8 @@ module Aws
               'rb' => 'ruby',
           }
 
+          @all_sections = %w{Mappings Parameters Conditions Resources Outputs}
+          @valid_functions = %w(Fn::Base64 Fn::GetAtt Fn::GetAZs Fn::Join Fn::FindInMap Fn::Select Ref Fn::Equals Fn::If Fn::Not Condition Fn::And Fn::Or)
 
         end
 
