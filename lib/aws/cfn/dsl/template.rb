@@ -79,7 +79,7 @@ module Aws
               braces = code.gsub(%r/[^{}]+/, '')
               len    = braces.size
               if len % 2 != 0
-                nest = tail.match %r/^(.*\})(.*)$/
+                nest = tail.match %r/^(.*?\})(.*)$/
                 if nest
                   code += nest[1]
                   tail  = nest[2]

@@ -14,7 +14,7 @@ module Aws
         attr_reader   :opts
         attr_reader   :config
 
-        require "dldinternet/mixlib/cli/mixins/parsers"
+        require 'dldinternet/mixlib/cli/mixins/parsers'
         include ::DLDInternet::Mixlib::CLI::Parsers
 
         def setup_options(opts=@opts)
