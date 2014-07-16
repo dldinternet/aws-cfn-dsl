@@ -77,9 +77,11 @@ module Aws
             end
             if File.exists?(abs)
               case File.extname(File.basename(abs)).downcase
-                when /json|js/
+                # TODO: [2014-0-16 Christo] Replace these with @json_template_ext_regex
+                when /json|js|template|jtf/
                   @items = JSON.parse(File.read(abs))
-                when /yaml|yml/
+                # TODO: [2014-0-16 Christo] Replace these with @yaml_template_ext_regex
+                when /yaml|yml|ytf/
                   @items = YAML.load(File.read(abs))
                 else
                   abort! "Unsupported file type for specification: #{file}"
