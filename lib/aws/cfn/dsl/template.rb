@@ -70,15 +70,16 @@ module Aws
 
         def hash_refs(line,scope)
           block_regex = %r/\{\s*:\S+\s*=>.*?\}|\{\s*\S+:\s*.*?\}/
-          match = line.match %r/^([^#]*?)(#{block_regex})(.*)$/
+          match = line.match %r/^(\s*[^#].*?)(#{block_regex})(.*)$/
           if match
             left = match[1]
             code = match[2]
             tail = match[3]
             while true
-              braces = code.gsub(%r/[^{}]+/, '')
-              len    = braces.size
-              if len % 2 != 0
+              lbraces = code.gsub(%r/[^{]+/, '')
+              rbraces = code.gsub(%r/[^}]+/, '')
+
+              if lbraces.size != rbraces.size
                 nest = tail.match %r/^(.*?\})(.*)$/
                 if nest
                   code += nest[1]
