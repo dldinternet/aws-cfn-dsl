@@ -36,9 +36,9 @@ module Aws
                                                                                            match: %r/#{::Logging::LEVELS.keys.join('|')}/i}
 
             [
-                { short: :n, long: :functions=,    default: 'off', on: 'on',      desc: 'Enable function use'},
-                { short: :x, long: :expandedpaths, default: 'off', on:      'on', desc: 'Show expanded paths in output',                                       },
-                { short: :O, long: :overwrite,     default: 'off', on:      'on', desc: 'Overwrite existing generated source files. (HINT: Think twice ...)',  },
+                { short: :n, long: :functions,     default: 'off', on: 'on', desc: 'Enable function use'},
+                { short: :x, long: :expandedpaths, default: 'off', on: 'on', desc: 'Show expanded paths in output',                                       },
+                { short: :O, long: :overwrite,     default: 'off', on: 'on', desc: 'Overwrite existing generated source files. (HINT: Think twice ...)',  },
             ].each do |opt|
               on opt[:short], opt[:long], opt[:desc], {as: String,
                                              optional_argument: true,
