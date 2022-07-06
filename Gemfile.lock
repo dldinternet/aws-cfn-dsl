@@ -1,0 +1,58 @@
+PATH
+  remote: .
+  specs:
+    aws-cfn-dsl (0.9.7)
+      awesome_print (~> 1.2, >= 1.2.0)
+      cloudformation-ruby-dsl (~> 0.4, >= 0.4.3)
+      dldinternet-mixlib-cli (>= 0.2.0)
+      dldinternet-mixlib-logging (>= 0.4.0)
+      json
+      psych
+      slop
+
+PATH
+  remote: ../cloudformation-ruby-dsl
+  specs:
+    cloudformation-ruby-dsl (0.4.3)
+      detabulator
+
+PATH
+  remote: ../dldinternet-mixlib-cli
+  specs:
+    dldinternet-mixlib-cli (0.2.0)
+      mixlib-cli (> 0)
+
+PATH
+  remote: ../dldinternet-mixlib-logging
+  specs:
+    dldinternet-mixlib-logging (0.4.3)
+      logging (~> 1.8, >= 1.8.2)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    awesome_print (1.2.0)
+    detabulator (0.1.0)
+    json (1.8.1)
+    json_pure (1.8.1)
+    little-plugger (1.1.3)
+    logging (1.8.2)
+      little-plugger (>= 1.1.3)
+      multi_json (>= 1.8.4)
+    mixlib-cli (1.5.0)
+    multi_json (1.10.1)
+    psych (2.0.6)
+    rake (10.3.2)
+    slop (3.6.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  aws-cfn-dsl!
+  bundler (~> 1.5)
+  cloudformation-ruby-dsl!
+  dldinternet-mixlib-cli!
+  dldinternet-mixlib-logging!
+  json_pure
+  rake
